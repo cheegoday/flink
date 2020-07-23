@@ -270,6 +270,7 @@ public abstract class TwoPhaseCommitSinkFunction<IN, TXN, CONTEXT>
 			Map.Entry<Long, TransactionHolder<TXN>> entry = pendingTransactionIterator.next();
 			Long pendingTransactionCheckpointId = entry.getKey();
 			TransactionHolder<TXN> pendingTransaction = entry.getValue();
+			// 如果待提交的事务的 checkpointId 大于当前通知的已完成的checkpointId，则循环继续下一个
 			if (pendingTransactionCheckpointId > checkpointId) {
 				continue;
 			}
@@ -303,18 +304,19 @@ public abstract class TwoPhaseCommitSinkFunction<IN, TXN, CONTEXT>
 		// we are ready to commit and remember the transaction
 
 		checkState(currentTransactionHolder != null, "bug: no transaction object when performing state snapshot");
-
+		// 从上下文中取得当前的checkpointId，是从0开始递增
 		long checkpointId = context.getCheckpointId();
 		LOG.debug("{} - checkpoint {} triggered, flushing transaction '{}'", name(), context.getCheckpointId(), currentTransactionHolder);
-
+		// 执行预提交操作，传入事务操作类，进行事务的预提交操作
 		preCommit(currentTransactionHolder.handle);
 		pendingCommitTransactions.put(checkpointId, currentTransactionHolder);
 		LOG.debug("{} - stored pending transactions {}", name(), pendingCommitTransactions);
 
 		currentTransactionHolder = beginTransactionInternal();
 		LOG.debug("{} - started new transaction '{}'", name(), currentTransactionHolder);
-
+		// 清除上一次的state
 		state.clear();
+		// 存储新的状态
 		state.add(new State<>(
 			this.currentTransactionHolder,
 			new ArrayList<>(pendingCommitTransactions.values()),
@@ -337,6 +339,7 @@ public abstract class TwoPhaseCommitSinkFunction<IN, TXN, CONTEXT>
 		// we can have more than one transaction to check in case of a scale-in event, or
 		// for the reasons discussed in the 'notifyCheckpointComplete()' method.
 
+		// 开始读取snapshot中的state，进行状态恢复操作
 		state = context.getOperatorStateStore().getListState(stateDescriptor);
 
 		boolean recoveredUserContext = false;
@@ -344,9 +347,11 @@ public abstract class TwoPhaseCommitSinkFunction<IN, TXN, CONTEXT>
 			LOG.info("{} - restoring state", name());
 			for (State<TXN, CONTEXT> operatorState : state.get()) {
 				userContext = operatorState.getContext();
+				// 获取从state中读取的待提交的事务列表
 				List<TransactionHolder<TXN>> recoveredTransactions = operatorState.getPendingCommitTransactions();
 				for (TransactionHolder<TXN> recoveredTransaction : recoveredTransactions) {
 					// If this fails to succeed eventually, there is actually data loss
+					// 恢复状态的同时会执行提交操作
 					recoverAndCommitInternal(recoveredTransaction);
 					LOG.info("{} committed recovered transaction {}", name(), recoveredTransaction);
 				}
@@ -367,8 +372,9 @@ public abstract class TwoPhaseCommitSinkFunction<IN, TXN, CONTEXT>
 
 			userContext = initializeUserContext();
 		}
+		// 清除 pendingCommitTransactions 集合
 		this.pendingCommitTransactions.clear();
-
+		// 开启事务
 		currentTransactionHolder = beginTransactionInternal();
 		LOG.debug("{} - started new transaction '{}'", name(), currentTransactionHolder);
 	}

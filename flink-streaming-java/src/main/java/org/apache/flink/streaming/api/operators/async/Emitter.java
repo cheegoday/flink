@@ -103,6 +103,7 @@ public class Emitter<OUT> implements Runnable {
 				AsyncWatermarkResult asyncWatermarkResult = asyncResult.asWatermark();
 
 				LOG.debug("Output async watermark.");
+				// 如果是watermark，发往下游算子
 				output.emitWatermark(asyncWatermarkResult.getWatermark());
 
 				// remove the peeked element from the async collector buffer so that it is no longer
@@ -126,8 +127,10 @@ public class Emitter<OUT> implements Runnable {
 				LOG.debug("Output async stream element collection result.");
 
 				try {
+					// 查询外部存储，返回Collection
 					Collection<OUT> resultCollection = streamRecordResult.get();
 
+					// 将Collection中的每一个元素，发往下游
 					if (resultCollection != null) {
 						for (OUT result : resultCollection) {
 							timestampedCollector.collect(result);

@@ -84,6 +84,7 @@ public class OrderedStreamElementQueue implements StreamElementQueue {
 		lock.lockInterruptibly();
 
 		try {
+			// 队列为空 or 队首future已完成，否则一直阻塞
 			while (queue.isEmpty() || !queue.peek().isDone()) {
 				headIsCompleted.await();
 			}

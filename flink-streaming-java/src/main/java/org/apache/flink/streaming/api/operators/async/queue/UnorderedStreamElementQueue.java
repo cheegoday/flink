@@ -270,7 +270,7 @@ public class UnorderedStreamElementQueue implements StreamElementQueue {
 		assert(lock.isHeldByCurrentThread());
 
 		if (streamElementQueueEntry.isWatermark()) {
-			lastSet = new HashSet<>(capacity);
+			lastSet = new HashSet<>(capacity); //遇到watermark，将lastSet置空，方便塞入下一轮StreamRecordBufferEntry对象
 
 			if (firstSet.isEmpty()) {
 				firstSet.add(streamElementQueueEntry);
@@ -281,7 +281,7 @@ public class UnorderedStreamElementQueue implements StreamElementQueue {
 			}
 			uncompletedQueue.offer(lastSet);
 		} else {
-			lastSet.add(streamElementQueueEntry);
+			lastSet.add(streamElementQueueEntry);//在没有遇到watermark之前，一直往lastSet中塞入StreamRecordBufferEntry对象
 		}
 
 		streamElementQueueEntry.onComplete(
