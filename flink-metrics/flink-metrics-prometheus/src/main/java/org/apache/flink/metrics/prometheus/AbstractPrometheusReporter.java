@@ -117,6 +117,7 @@ public abstract class AbstractPrometheusReporter implements MetricReporter {
 				collector = collectorWithCount.getKey();
 				count = collectorWithCount.getValue();
 			} else {
+				// 将FlinkMetric转成Prometheus中相应的Metric对象
 				collector = createCollector(metric, dimensionKeys, dimensionValues, scopedMetricName, helpString);
 				try {
 					collector.register();
@@ -124,6 +125,7 @@ public abstract class AbstractPrometheusReporter implements MetricReporter {
 					log.warn("There was a problem registering metric {}.", metricName, e);
 				}
 			}
+			// 将新来的Metric添加到Prometheus中的指标容器，容器结构为ConcurrentMap<List<String>, Child>，List<String>代表一组label
 			addMetric(metric, dimensionValues, collector);
 			collectorsWithCountByMetricName.put(scopedMetricName, new AbstractMap.SimpleImmutableEntry<>(collector, count + 1));
 		}

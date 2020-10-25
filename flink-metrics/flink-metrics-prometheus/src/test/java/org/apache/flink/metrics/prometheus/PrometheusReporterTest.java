@@ -84,7 +84,7 @@ public class PrometheusReporterTest extends TestLogger {
 	public void setupReporter() {
 		registry = new MetricRegistryImpl(
 			MetricRegistryConfiguration.defaultMetricRegistryConfiguration(),
-			Collections.singletonList(createReporterSetup("test1", portRangeProvider.next())));
+			Collections.singletonList(createReporterSetup("test1", "9093")));
 		metricGroup = new FrontMetricGroup<>(0, new TaskManagerMetricGroup(registry, HOST_NAME, TASK_MANAGER));
 		reporter = (PrometheusReporter) registry.getReporters().get(0);
 	}
@@ -291,7 +291,9 @@ public class PrometheusReporterTest extends TestLogger {
 	}
 
 	private String addMetricAndPollResponse(Metric metric, String metricName) throws UnirestException {
+		// 添加Metric到Reporter内部容器
 		reporter.notifyOfAddedMetric(metric, metricName, metricGroup);
+		// 获取Metric
 		return pollMetrics(reporter.getPort()).getBody();
 	}
 

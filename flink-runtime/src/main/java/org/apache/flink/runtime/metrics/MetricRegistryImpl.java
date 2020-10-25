@@ -335,6 +335,7 @@ public class MetricRegistryImpl implements MetricRegistry {
 						try {
 							if (reporter != null) {
 								FrontMetricGroup front = new FrontMetricGroup<AbstractMetricGroup<?>>(i, group);
+								// 使用观察者模式进行Metrics的汇报，分别通知所有reporter
 								reporter.notifyOfAddedMetric(metric, metricName, front);
 							}
 						} catch (Exception e) {
