@@ -18,6 +18,7 @@
 
 package org.apache.flink.client.cli;
 
+import org.apache.commons.cli.Option;
 import org.apache.flink.api.common.ExecutionConfig;
 import org.apache.flink.api.common.InvalidProgramException;
 import org.apache.flink.api.common.JobID;
@@ -66,13 +67,7 @@ import java.net.InetSocketAddress;
 import java.net.URL;
 import java.text.SimpleDateFormat;
 import java.time.Duration;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.Comparator;
-import java.util.Date;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
@@ -960,7 +955,7 @@ public class CliFrontend {
 			final CliFrontend cli = new CliFrontend(
 				configuration,
 				customCommandLines);
-
+			extractKerberosIfExist(args, customCommandLines, cli.configuration);
 			SecurityUtils.install(new SecurityConfiguration(cli.configuration));
 			int retCode = SecurityUtils.getInstalledContext()
 					.runSecured(() -> cli.parseParameters(args));
@@ -971,6 +966,47 @@ public class CliFrontend {
 			LOG.error("Fatal error while running command line interface.", strippedThrowable);
 			strippedThrowable.printStackTrace();
 			System.exit(31);
+		}
+	}
+
+	/**
+	 * Extract the kerberos authorization info  from -yD commandLine args and set to cli.configuration.
+	 *
+	 * @param args               Main method input param
+	 * @param customCommandLines Flink commandLines
+	 * @param configuration      Flink conf
+	 */
+	private static void extractKerberosIfExist(String[] args, List<CustomCommandLine> customCommandLines, Configuration configuration) {
+		Option dynamicproperties = Option.builder("yD")
+			.argName("property=value")
+			.numberOfArgs(2)
+			.valueSeparator()
+			.desc("use value for given property")
+			.build();
+		// remove action from parameters
+		final String[] params = Arrays.copyOfRange(args, 1, args.length);
+		final Options commandOptions = CliFrontendParser.getRunCommandOptions();
+		Options customCommandLineOptions = new Options();
+		for (CustomCommandLine customCommandLine : customCommandLines) {
+			customCommandLine.addGeneralOptions(customCommandLineOptions);
+			customCommandLine.addRunOptions(customCommandLineOptions);
+		}
+
+		try {
+			final Options commandLineOptions = CliFrontendParser.mergeOptions(commandOptions, customCommandLineOptions);
+			final CommandLine commandLine = CliFrontendParser.parse(commandLineOptions, params, true);
+			if (commandLine.hasOption(dynamicproperties.getOpt())) {
+
+				final Properties properties = commandLine.getOptionProperties(dynamicproperties.getOpt());
+				properties.stringPropertyNames()
+					.forEach(key -> {
+						final String value = properties.getProperty(key);
+						LOG.info("Add additional properties({}-{}) to FlinkConf", key, value);
+						configuration.setString(key, value);
+					});
+			}
+		} catch (CliArgsException e) {
+			LOG.warn("kerberos args extract error. {}", e.getMessage());
 		}
 	}
 
